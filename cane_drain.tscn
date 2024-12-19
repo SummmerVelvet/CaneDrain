@@ -1,0 +1,134 @@
+[gd_scene load_steps=12 format=3 uid="uid://bgcgrm0uvumfx"]
+
+[ext_resource type="Texture2D" uid="uid://bnl5ccaoviauq" path="res://cane.png" id="1_grwhf"]
+[ext_resource type="PackedScene" uid="uid://cmeeoveybolbt" path="res://tree.tscn" id="2_pdkk3"]
+[ext_resource type="PackedScene" uid="uid://doicyy1qs3er3" path="res://enemy.tscn" id="3_jhfyc"]
+
+[sub_resource type="Gradient" id="Gradient_2yhcr"]
+offsets = PackedFloat32Array(0, 0.0584416, 0.720779, 1)
+colors = PackedColorArray(0.737722, 0.914287, 0.957022, 1, 0.65472, 0.8497, 0.96437, 1, 0.274296, 0.553676, 0.998046, 1, 0.252228, 0.536505, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_tauxp"]
+gradient = SubResource("Gradient_2yhcr")
+
+[sub_resource type="GDScript" id="GDScript_i4txt"]
+script/source = "extends CharacterBody2D
+
+# Custom velocity for the skater
+var skater_velocity = Vector2.ZERO
+var friction = 0.98  # Simulates ice friction
+var acceleration = 400  # How fast the skater accelerates
+
+func rotate_ray():
+		var mouse_position = get_global_mouse_position()
+		var direction = mouse_position - global_position
+		var angle = direction.angle()
+		$RayCast2D.rotation = angle
+
+func _physics_process(delta):
+	# Get player input
+	var input_direction = Vector2.ZERO
+	input_direction.x = Input.get_action_strength(\"ui_right\") - Input.get_action_strength(\"ui_left\")
+	input_direction.y = Input.get_action_strength(\"ui_down\") - Input.get_action_strength(\"ui_up\")
+	
+	# Normalize input to ensure consistent speed
+	input_direction = input_direction.normalized()
+	
+	# Accelerate skater
+	skater_velocity += input_direction * acceleration * delta
+	
+	# Apply friction to simulate sliding
+	skater_velocity *= friction
+	
+	# Move the skater
+	velocity = skater_velocity  # Assign to the built-in velocity property
+	rotate_ray()
+	move_and_slide()
+"
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_25poq"]
+radius = 9.0
+
+[sub_resource type="Gradient" id="Gradient_15avs"]
+offsets = PackedFloat32Array(0, 0.385542)
+colors = PackedColorArray(1, 1, 1, 1, 1, 0.154201, 0.337259, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_mugje"]
+gradient = SubResource("Gradient_15avs")
+
+[sub_resource type="GDScript" id="GDScript_s6oqn"]
+script/source = "extends StaticBody2D
+
+
+# Called when the node enters the scene tree for the first time.
+func _ready() -> void:
+	pass # Replace with function body.
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta: float) -> void:
+	pass
+"
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_uyy0j"]
+radius = 4.0
+height = 26.0
+
+[node name="CaneDrain" type="Node2D"]
+position = Vector2(-878, -257)
+scale = Vector2(2.53456, 2.53456)
+
+[node name="Skating Rink" type="Sprite2D" parent="."]
+position = Vector2(576.09, 324.91)
+scale = Vector2(17.9972, 10.0909)
+texture = SubResource("GradientTexture2D_tauxp")
+metadata/_edit_group_ = true
+
+[node name="StaticBody2D" type="StaticBody2D" parent="Skating Rink"]
+visible = false
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="Skating Rink/StaticBody2D"]
+polygon = PackedVector2Array(31.4999, 30.4323, 31.3888, -30.8108, -31.8989, -31.5045, -31.6211, 29.7386, 31.7222, 29.9368, 31.4444, 30.8287, -32.6768, 31.1259, -33.4547, -33.8829, 32.3334, -32.4955)
+
+[node name="Pengu" type="CharacterBody2D" parent="."]
+position = Vector2(369.295, 119.547)
+script = SubResource("GDScript_i4txt")
+metadata/_edit_group_ = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Pengu"]
+shape = SubResource("CircleShape2D_25poq")
+
+[node name="Sprite2D" type="Sprite2D" parent="Pengu"]
+position = Vector2(2.99513e-05, 0.031248)
+scale = Vector2(0.0703125, 17.9375)
+texture = SubResource("GradientTexture1D_mugje")
+
+[node name="RayCast2D" type="RayCast2D" parent="Pengu"]
+position = Vector2(0.0113664, 0.0184462)
+target_position = Vector2(-2.76181, 1.18364)
+
+[node name="Cane" type="StaticBody2D" parent="."]
+position = Vector2(853.008, 203.586)
+script = SubResource("GDScript_s6oqn")
+metadata/_edit_group_ = true
+
+[node name="Sprite2D" type="Sprite2D" parent="Cane"]
+texture = ExtResource("1_grwhf")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Cane"]
+shape = SubResource("CapsuleShape2D_uyy0j")
+
+[node name="Tree" parent="." instance=ExtResource("2_pdkk3")]
+position = Vector2(495.944, 200.429)
+
+[node name="Enemy" parent="." instance=ExtResource("3_jhfyc")]
+position = Vector2(600.893, 241.857)
+
+[node name="Enemy2" parent="." instance=ExtResource("3_jhfyc")]
+position = Vector2(583.139, 169.26)
+
+[node name="Enemy3" parent="." instance=ExtResource("3_jhfyc")]
+position = Vector2(714.917, 175.967)
+
+[node name="Enemy4" parent="." instance=ExtResource("3_jhfyc")]
+position = Vector2(704.659, 282.495)

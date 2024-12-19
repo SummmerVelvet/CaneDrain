@@ -1,0 +1,65 @@
+[gd_scene load_steps=3 format=3 uid="uid://doicyy1qs3er3"]
+
+[sub_resource type="GDScript" id="GDScript_x0pw0"]
+script/source = "# Enemy.gd
+extends CharacterBody2D
+
+@export var speed := 100.0
+@export var damage := 10
+@export var attack_cooldown := 1.0
+
+var target_position: Vector2
+var can_attack := true
+var attack_timer: Timer
+
+func _ready():
+	add_to_group(\"enemies\")
+	
+	# Create the attack timer
+	attack_timer = Timer.new()
+	attack_timer.wait_time = attack_cooldown
+	attack_timer.one_shot = true  # Timer only runs once when started
+	attack_timer.timeout.connect(_on_attack_timer_timeout)
+	add_child(attack_timer)
+
+func _physics_process(delta):
+	var tree = get_tree().get_first_node_in_group(\"christmas_tree\")
+	if tree:
+		target_position = tree.global_position
+		var direction = global_position.direction_to(target_position)
+		
+		velocity = direction * speed
+		move_and_slide()
+		
+		if global_position.distance_to(target_position) < 50 and can_attack:
+			attack_tree(tree)
+
+func attack_tree(tree):
+	if tree.has_method(\"take_damage\"):
+		tree.take_damage(damage)
+		can_attack = false
+		attack_timer.start()
+
+func _on_attack_timer_timeout():
+	can_attack = true
+
+func take_damage(amount: int):
+	queue_free()  # For now, enemy dies in one hit
+"
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_0gq6r"]
+radius = 8.0
+height = 22.0
+
+[node name="Enemy" type="CharacterBody2D"]
+script = SubResource("GDScript_x0pw0")
+metadata/_edit_group_ = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CapsuleShape2D_0gq6r")
+
+[node name="Polygon2D" type="Polygon2D" parent="."]
+position = Vector2(1, 0)
+scale = Vector2(1, 1)
+color = Color(0.41598, 0.41598, 0.41598, 1)
+polygon = PackedVector2Array(-8, -8, -1, -11, 6, -8, 7, 0, 6, 10, -1, 11, -8, 10, -9, -9.53674e-07)
