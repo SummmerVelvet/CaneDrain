@@ -7,32 +7,60 @@ extends CharacterBody2D
 @export var speed := 100.0
 @export var damage := 10
 @export var attack_cooldown := 1.0
+@export var enemy_avoidance_radius := 60.0  # Increased radius
+@export var attack_distance := 70.0  # Distance from tree to start attacking
 
 var target_position: Vector2
 var can_attack := true
 var attack_timer: Timer
+var attack_offset: Vector2  # Each enemy will have their own offset position
 
 func _ready():
 	add_to_group(\"enemies\")
 	
-	# Create the attack timer
+	# Give each enemy a random offset position around the tree
+	attack_offset = Vector2.RIGHT.rotated(randf() * PI * 2) * randf_range(50, 100)
+	
 	attack_timer = Timer.new()
 	attack_timer.wait_time = attack_cooldown
-	attack_timer.one_shot = true  # Timer only runs once when started
+	attack_timer.one_shot = true
 	attack_timer.timeout.connect(_on_attack_timer_timeout)
 	add_child(attack_timer)
 
 func _physics_process(delta):
 	var tree = get_tree().get_first_node_in_group(\"christmas_tree\")
 	if tree:
-		target_position = tree.global_position
+		# Add the offset to the tree position for a unique target position
+		target_position = tree.global_position + attack_offset
+		var distance_to_tree = global_position.distance_to(tree.global_position)
+		
 		var direction = global_position.direction_to(target_position)
+		
+		# Stronger avoidance
+		var avoidance = get_avoidance_vector() * 2.0  # Doubled the avoidance force
+		direction += avoidance
+		direction = direction.normalized()
 		
 		velocity = direction * speed
 		move_and_slide()
 		
-		if global_position.distance_to(target_position) < 50 and can_attack:
+		# Check if we're close enough to the actual tree (not the offset position)
+		if distance_to_tree < attack_distance and can_attack:
 			attack_tree(tree)
+
+func get_avoidance_vector() -> Vector2:
+	var avoidance = Vector2.ZERO
+	var enemies = get_tree().get_nodes_in_group(\"enemies\")
+	
+	for enemy in enemies:
+		if enemy != self:
+			var dist = global_position.distance_to(enemy.global_position)
+			if dist < enemy_avoidance_radius:
+				var push_vector = global_position - enemy.global_position
+				# Made the avoidance force stronger when enemies are close
+				avoidance += push_vector.normalized() * (enemy_avoidance_radius / max(dist, 1.0))
+	
+	return avoidance
 
 func attack_tree(tree):
 	if tree.has_method(\"take_damage\"):
@@ -44,7 +72,7 @@ func _on_attack_timer_timeout():
 	can_attack = true
 
 func take_damage(amount: int):
-	queue_free()  # For now, enemy dies in one hit
+	queue_free()
 "
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_0gq6r"]
@@ -60,6 +88,5 @@ shape = SubResource("CapsuleShape2D_0gq6r")
 
 [node name="Polygon2D" type="Polygon2D" parent="."]
 position = Vector2(1, 0)
-scale = Vector2(1, 1)
 color = Color(0.41598, 0.41598, 0.41598, 1)
 polygon = PackedVector2Array(-8, -8, -1, -11, 6, -8, 7, 0, 6, 10, -1, 11, -8, 10, -9, -9.53674e-07)

@@ -12,38 +12,107 @@ colors = PackedColorArray(0.737722, 0.914287, 0.957022, 1, 0.65472, 0.8497, 0.96
 gradient = SubResource("Gradient_2yhcr")
 
 [sub_resource type="GDScript" id="GDScript_i4txt"]
-script/source = "extends CharacterBody2D
+script/source = "# Player.gd
+extends CharacterBody2D
 
-# Custom velocity for the skater
-var skater_velocity = Vector2.ZERO
-var friction = 0.98  # Simulates ice friction
-var acceleration = 400  # How fast the skater accelerates
+@export var acceleration := 1200.0
+@export var max_speed := 600.0
+@export var turning_friction := 0.97  # Higher value = less grip when turning
+@export var natural_friction := 0.995  # Very low friction when not accelerating
+@export var min_boost_speed := 800.0
+@export var max_boost_speed := 2000.0
+@export var charge_rate := 1.5
+@export var boost_duration := 0.3
 
-func rotate_ray():
-		var mouse_position = get_global_mouse_position()
-		var direction = mouse_position - global_position
-		var angle = direction.angle()
-		$RayCast2D.rotation = angle
+var charge_amount := 0.0
+var is_charging := false
+var is_boosting := false
+var movement_direction := Vector2.ZERO
+var boost_timer: Timer
+
+func _ready():
+	boost_timer = Timer.new()
+	boost_timer.one_shot = true
+	boost_timer.timeout.connect(_on_boost_end)
+	add_child(boost_timer)
 
 func _physics_process(delta):
-	# Get player input
-	var input_direction = Vector2.ZERO
-	input_direction.x = Input.get_action_strength(\"ui_right\") - Input.get_action_strength(\"ui_left\")
-	input_direction.y = Input.get_action_strength(\"ui_down\") - Input.get_action_strength(\"ui_up\")
-	
-	# Normalize input to ensure consistent speed
-	input_direction = input_direction.normalized()
-	
-	# Accelerate skater
-	skater_velocity += input_direction * acceleration * delta
-	
-	# Apply friction to simulate sliding
-	skater_velocity *= friction
-	
-	# Move the skater
-	velocity = skater_velocity  # Assign to the built-in velocity property
-	rotate_ray()
+	handle_skating_movement(delta)
+	handle_charge(delta)
 	move_and_slide()
+	
+func handle_skating_movement(delta):
+	var input_dir = Vector2(
+		Input.get_axis(\"ui_left\", \"ui_right\"),
+		Input.get_axis(\"ui_up\", \"ui_down\")
+	).normalized()
+	
+	if input_dir != Vector2.ZERO:
+		movement_direction = input_dir
+		
+		# Apply acceleration in input direction, but maintain more momentum
+		var acceleration_vector = input_dir * acceleration * delta
+		
+		# The faster we're going, the harder it is to change direction
+		var current_speed = velocity.length()
+		var turn_resistance = clamp(current_speed / max_speed, 0.1, 1.0)
+		
+		# Blend between current velocity and new direction
+		velocity = velocity.lerp(velocity + acceleration_vector, 1.0 - turn_resistance)
+		
+		# Apply turning friction when changing direction
+		if velocity.normalized().dot(input_dir) < 0.9:  # If turning sharply
+			velocity *= turning_friction
+	else:
+		# Apply very low friction when not inputting direction
+		velocity *= natural_friction
+	
+	# Only apply speed limit when not boosting
+	if not is_boosting and velocity.length() > max_speed:
+		velocity = velocity.normalized() * max_speed
+
+func handle_charge(delta):
+	if Input.is_action_just_pressed(\"ui_select\"):
+		start_charging()
+	elif Input.is_action_pressed(\"ui_select\") and is_charging:
+		continue_charging(delta)
+	elif Input.is_action_just_released(\"ui_select\") and is_charging:
+		release_charge()
+
+func start_charging():
+	if velocity.length() > 10:
+		is_charging = true
+		charge_amount = 0.0
+
+func continue_charging(delta):
+	charge_amount = min(charge_amount + charge_rate * delta, 1.0)
+	update_charge_indicator()
+
+func release_charge():
+	if not is_charging:
+		return
+		
+	is_charging = false
+	
+	var boost_direction = velocity.normalized()
+	var boost_speed = lerp(min_boost_speed, max_boost_speed, charge_amount)
+	
+	velocity = boost_direction * boost_speed
+	is_boosting = true
+	boost_timer.start(boost_duration)
+	
+	charge_amount = 0.0
+	hide_charge_indicator()
+
+func _on_boost_end():
+	is_boosting = false
+	velocity *= 0.8  # Retain more speed after boost
+
+func update_charge_indicator():
+	print(\"Charge: \", charge_amount * 100, \"%\")
+
+func hide_charge_indicator():
+	pass
 "
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_25poq"]
@@ -91,7 +160,7 @@ visible = false
 polygon = PackedVector2Array(31.4999, 30.4323, 31.3888, -30.8108, -31.8989, -31.5045, -31.6211, 29.7386, 31.7222, 29.9368, 31.4444, 30.8287, -32.6768, 31.1259, -33.4547, -33.8829, 32.3334, -32.4955)
 
 [node name="Pengu" type="CharacterBody2D" parent="."]
-position = Vector2(369.295, 119.547)
+position = Vector2(372.451, 120.731)
 script = SubResource("GDScript_i4txt")
 metadata/_edit_group_ = true
 
@@ -106,6 +175,8 @@ texture = SubResource("GradientTexture1D_mugje")
 [node name="RayCast2D" type="RayCast2D" parent="Pengu"]
 position = Vector2(0.0113664, 0.0184462)
 target_position = Vector2(-2.76181, 1.18364)
+
+[node name="Camera2D" type="Camera2D" parent="Pengu"]
 
 [node name="Cane" type="StaticBody2D" parent="."]
 position = Vector2(853.008, 203.586)
@@ -122,7 +193,7 @@ shape = SubResource("CapsuleShape2D_uyy0j")
 position = Vector2(495.944, 200.429)
 
 [node name="Enemy" parent="." instance=ExtResource("3_jhfyc")]
-position = Vector2(600.893, 241.857)
+position = Vector2(533.82, 198.062)
 
 [node name="Enemy2" parent="." instance=ExtResource("3_jhfyc")]
 position = Vector2(583.139, 169.26)
